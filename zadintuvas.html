@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Žadintuvas</title>
+    <style>
+        body {
+            font-family: "Roboto", sans-serif;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: rotate(0deg);
+            }
+
+            10% {
+                transform: rotate(8deg);
+            }
+
+            20%,
+            40%,
+            60% {
+                transform: rotate(-10deg);
+            }
+
+            30%,
+            50%,
+            70% {
+                transform: rotate(10deg);
+            }
+
+            80% {
+                transform: rotate(-8deg);
+            }
+
+            90% {
+                transform: rotate(8deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <div class="h-screen flex items-center justify-center">
+        <div class="bg-white shadow-lg rounded-lg p-8 mw-1/2">
+            <div class="flex justify-center mb-4">
+                <img class="w-1/2 bg-transparent" id="alarmClock"
+                    src="https://png.pngtree.com/png-vector/20230915/ourmid/pngtree-black-vintage-alarm-clock-png-image_10081629.png"
+                    alt="Alarm Clock" />
+            </div>
+            <div class="flex mb-4">
+                <div class="w-1/2" id="timeContainer">
+                    <h1 class="text-1xl font-bold ">Dabartinis laikas:</h1>
+                    <h1 class="text-1xl currentTime"></h1>
+                </div>
+                <div class="w-1/2" id="ringContainer">
+                    <h1 class="text-1xl font-bold text-right">Žadintuvo būsena:</h1>
+                    <h1 class="text-1xl text-right currentState"></h1>
+                </div>
+            </div>
+            <div class="flex justify-between">
+                <h1 class="text-2xl font-bold mb-4">Įveskite žadinimo laiką:</h1>
+                <input type="time" class="p-2 border border-gray-300 rounded mb-4" id="alarmTimeInput" />
+            </div>
+            <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full" type="submit"
+                id="setAlarmButton">
+                Įvesti
+            </button>
+            <script>
+                class AlarmClock {
+                    constructor() {
+                        this.states = {
+                            waiting: WaitingState,
+                            weakRinging: WeakRingingState,
+                            loudRinging: LoudRingingState,
+                        };
+                        this.state = new this.states.waiting(this);
+                        this.updateStateDisplay();
+                    }
+
+                    ring(action) {
+                        if (action === "ringLoudly") {
+                            animateClockFast();
+                        } else {
+                            animateClock();
+                        }
+                    }
+
+                    ringWeakly() {
+                        this.state.ringWeakly();
+                    }
+
+                    ringLoudly() {
+                        this.state.ringLoudly();
+                    }
+
+                    countAlarmTime(insertedTime) {
+                        const currentTime = getCurrentTime();
+                        const currentTimeInSeconds = currentTime[0] * 3600 + currentTime[1] * 60;
+                        const insertedTimeInMinutes = this.timeToSeconds(insertedTime);
+                        const timeDifference =
+                            insertedTimeInMinutes - currentTimeInSeconds;
+
+                        if (timeDifference < 0) {
+                            this.state = new this.states.waiting(this);
+                            this.updateStateDisplay();
+                            return;
+                        }
+
+                        if (timeDifference <= 1) {
+                            this.state = new this.states.loudRinging(this);
+                        } else if (timeDifference <= 5) {
+                            this.state = new this.states.weakRinging(this);
+                        } else {
+                            this.state = new this.states.waiting(this);
+                        }
+
+                        alarmTimeDisplay(insertedTime);
+                        alarmEndTimeDisplay(timeDifference);
+                        this.updateStateDisplay();
+                    }
+
+                    timeToSeconds(time) {
+                        const [hours, minutes, seconds] = time.split(":").map(Number);
+                        return hours * 60 + minutes + seconds;
+                    }
+
+                    updateStateDisplay() {
+                        const currentStateElement =
+                            document.querySelector(".currentState");
+                        let stateName = "";
+                        switch (this.state.constructor.name) {
+                            case "WeakRingingState":
+                                stateName = "Silpnas skambėjimas";
+                                break;
+                            case "LoudRingingState":
+                                stateName = "Stiprus skambėjimas";
+                                break;
+                            default:
+                                stateName = "Laukimas";
+                        }
+                        currentStateElement.innerHTML = stateName;
+                    }
+                }
+
+                class WaitingState {
+                    constructor(clock) {
+                        this.clock = clock;
+                    }
+
+                    countAlarmTime() { }
+
+                    ringWeakly() { }
+
+                    ringLoudly() { }
+                }
+
+                class WeakRingingState {
+                    constructor(clock) {
+                        this.clock = clock;
+                        this.ringWeakly();
+                    }
+
+                    ringWeakly() {
+                        this.clock.ring("ringWeakly");
+                        this.clock.updateStateDisplay();
+                    }
+
+                    ringLoudly() { }
+                }
+
+                class LoudRingingState {
+                    constructor(clock) {
+                        this.clock = clock;
+                        this.ringLoudly();
+                    }
+
+                    ringLoudly() {
+                        this.clock.ring("ringLoudly");
+                        this.clock.updateStateDisplay();
+                    }
+
+                    ringWeakly() { }
+                }
+
+                const alarmClock = new AlarmClock();
+
+                function startAlarmCountdown() {
+                    const alarmTime = document.getElementById("alarmTimeInput").value;
+                    setInterval(() => {
+                        alarmClock.countAlarmTime(alarmTime);
+                    }, 1000);
+                }
+
+                function setAlarmTime() {
+                    document.getElementById("setAlarmButton").addEventListener("click", () => {
+                        startAlarmCountdown();
+                    });
+                }
+
+                function getCurrentTime() {
+                    const currentDate = new Date(); // Reikia gauti laiką kompiuteryje
+                    const hours = currentDate.getHours(); // Valandos
+                    const minutes = currentDate.getMinutes(); // Minutes
+                    const seconds = currentDate.getSeconds();
+                    return [hours, minutes, seconds];
+                }
+
+                function formatTime() {
+                    const currentTime = getCurrentTime(); // Gaunam valandų ir minučių masyvą
+                    const hours = currentTime[0];
+                    const minutes = currentTime[1];
+                    const formattedTime = `${hours
+                        .toString()
+                        .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`; // Sudedam laiką
+                    return formattedTime; // Gražinam laiką
+                }
+
+                function updateTimeDisplay() {
+                    const currentFormattedTime = formatTime();
+                    const setCurrentTime = document.querySelector(".currentTime");
+                    setCurrentTime.innerHTML = currentFormattedTime;
+                }
+
+                function alarmTimeDisplay(insertedTime) {
+                    const timeContainer = document.getElementById("timeContainer");
+
+                    let alarmText = timeContainer.querySelector(".alarmText");
+                    let alarmTime = timeContainer.querySelector(".alarmTime");
+
+                    if (!alarmText) {
+                        alarmText = document.createElement("h1");
+                        alarmText.className = "alarmText mt-2 text-1xl font-bold";
+                        timeContainer.appendChild(alarmText);
+                    }
+
+                    if (!alarmTime) {
+                        alarmTime = document.createElement("h1");
+                        alarmTime.className = "alarmTime";
+                        timeContainer.appendChild(alarmTime);
+                    }
+
+                    alarmText.innerHTML = "Įvestas žadintuvo laikas:";
+                    alarmTime.innerHTML = insertedTime;
+                }
+
+                function alarmEndTimeDisplay(timeDifference) {
+                    const ringContainer = document.getElementById("ringContainer");
+
+                    let alarmEndText = ringContainer.querySelector(".alarmEndText");
+                    let alarmEndTime = ringContainer.querySelector(".alarmEndTime");
+
+                    if (!alarmEndText) {
+                        alarmEndText = document.createElement("h1");
+                        alarmEndText.className =
+                            "alarmEndText mt-2 text-1xl font-bold text-right";
+                        ringContainer.appendChild(alarmEndText);
+                    }
+
+                    if (!alarmEndTime) {
+                        alarmEndTime = document.createElement("h1");
+                        alarmEndTime.className = "alarmEndTime text-right";
+                        ringContainer.appendChild(alarmEndTime);
+                    }
+
+                    if (timeDifference <= 1) {
+                        alarmEndText.innerHTML = "Skambejimas pasibaigs:";
+                        alarmEndTime.innerHTML = `${timeDifference} min.`;
+                    } else if (timeDifference <= 5) {
+                        alarmEndText.innerHTML = "Stipriai suskambes po:";
+                        alarmEndTime.innerHTML = `${timeDifference - 1} min.`;
+                    } else {
+                        alarmEndText.innerHTML = "Silpnai suskambes po:";
+                        alarmEndTime.innerHTML = `${timeDifference - 5} min.`;
+                    }
+                }
+
+                function animateClock() {
+                    const alarmClockImage = document.getElementById("alarmClock");
+                    alarmClockImage.style.animation =
+                        "shake 2s ease 0s infinite normal forwards";
+                }
+                function animateClockFast() {
+                    const alarmClockImage = document.getElementById("alarmClock");
+                    alarmClockImage.style.animation =
+                        "shake 1s ease 0s infinite normal forwards";
+                }
+
+                setAlarmTime();
+                updateTimeDisplay();
+                setInterval(updateTimeDisplay, 1000);
+            </script>
+        </div>
+    </div>
+</body>
+
+</html>
